@@ -1,5 +1,5 @@
 ##############################################
-# OpenWrt Makefile for helloworld program
+# OpenWrt Makefile for net2ledmatrix program
 #
 #
 # Most of the variables used here are defined in
@@ -19,7 +19,7 @@
 include $(TOPDIR)/rules.mk
 
 # Name and release number of this package
-PKG_NAME:=hello
+PKG_NAME:=net2ledmatrix
 PKG_RELEASE:=1
 
 # This specifies the directory where we're going to build the program.
@@ -31,18 +31,17 @@ include $(INCLUDE_DIR)/package.mk
 
 # Specify package information for this program.
 # The variables defined here should be self explanatory.
-define Package/hello
+define Package/net2ledmatrix
 	SECTION:=utils
 	CATEGORY:=Utilities
-	TITLE:=hello -- prints a snarky message
-#	DEPENDS:=+libusb-1.0
+	TITLE:=Network to LED Matrix package. See https://github.com/Frans-Willem/LEDMatrixHUB75.
 #   DESCRIPTION:=\
 #   If you can't figure out what this program does, \\\
 #   you're probably brain-dead and need immediate \\\
 #   medical attention.
 endef
 
-define Package/hello/description
+define Package/net2ledmatrix/description
 
 endef
 
@@ -61,11 +60,6 @@ endef
 define Build/Configure
 endef
 
-#TARGET_CFLAGS += \
-#    -I$(STAGING_DIR)/usr/include/libusb-1.0
-#TARGET_LDFLAGS += \
-#	-lusb-1.0
-
 #define Build/Compile
 # $(MAKE) -C $(PKG_BUILD_DIR) $(TARGET_CONFIGURE_OPTS)
 #endef
@@ -77,13 +71,13 @@ endef
 # directory if it does not already exist.  Likewise $(INSTALL_BIN) contains the
 # command to copy the binary file from its current location (in our case the build
 # directory) to the install directory.
-define Package/hello/install
+define Package/net2ledmatrix/install
 	$(INSTALL_DIR) $(1)/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/ledmatrix $(1)/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/net2ledmatrix $(1)/bin/
 endef
 
 # This line executes the necessary commands to compile our program.
 # The above define directives specify all the information needed, but this
 # line calls BuildPackage which in turn actually uses this information to
 # build a package.
-$(eval $(call BuildPackage,hello))
+$(eval $(call BuildPackage,net2ledmatrix))
