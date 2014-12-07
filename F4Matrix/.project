@@ -28,7 +28,13 @@
 		<link>
 			<name>StdPeriph</name>
 			<type>2</type>
-			<locationURI>$%7BPARENT-2-PROJECT_LOC%7D/STM32F4xx_DSP_StdPeriph_Lib_V1.4.0/Libraries/STM32F4xx_StdPeriph_Driver/src</locationURI>
+			<locationURI>$%7BSTMLIBS_LOC%7D/STM32F4xx_DSP_StdPeriph_Lib_V1.4.0/Libraries/STM32F4xx_StdPeriph_Driver/src</locationURI>
 		</link>
 	</linkedResources>
+	<variableList>
+		<variable>
+			<name>STMLIBS_LOC</name>
+			<value>$%7BPARENT-1-WORKSPACE_LOC%7D</value>
+		</variable>
+	</variableList>
 </projectDescription>
