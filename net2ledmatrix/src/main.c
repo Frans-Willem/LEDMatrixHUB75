@@ -40,9 +40,12 @@ int matrix_set_custom_baud(int fd, unsigned int baudrate) {
 		printf("Error on ioctl TCGETS2\r\n");
 		return -1;
 	}
+	t.c_iflag = IGNBRK|IGNPAR;
+	t.c_oflag = 0;
+	t.c_cflag = BOTHER|CS8|CLOCAL;
 	t.c_ospeed = t.c_ispeed = baudrate;
-	t.c_cflag &= ~CBAUD;
-	t.c_cflag |= BOTHER;
+	//t.c_cflag &= ~CBAUD;
+	//t.c_cflag |= BOTHER;
 	if (ioctl(fd, TCSETS2, &t)) {
 		printf("Error on ioctl TCGETS2\r\n");
 		return -1;

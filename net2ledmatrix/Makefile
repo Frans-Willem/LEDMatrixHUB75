@@ -55,6 +55,7 @@ endef
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
 	$(CP) ./src/* $(PKG_BUILD_DIR)/
+	chmod ugo+x ./init/net2ledmatrix.init
 endef
 
 define Build/Configure
@@ -74,6 +75,8 @@ endef
 define Package/net2ledmatrix/install
 	$(INSTALL_DIR) $(1)/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/net2ledmatrix $(1)/bin/
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) ./init/net2ledmatrix.init $(1)/etc/init.d/net2ledmatrix
 endef
 
 # This line executes the necessary commands to compile our program.

@@ -1,0 +1,20 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+startloop() {
+        while [ true ]
+        do
+                net2ledmatrix
+                sleep 10
+        done
+}
+start()
+{
+( startloop ) &
+}
+
+stop()
+{
+        killall -9 net2ledmatrix
+}
