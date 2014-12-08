@@ -51,11 +51,11 @@
 #define GPIO_DATA			GPIOD
 #define GPIO_DATA_CLOCKCMD(x) 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, x)
 #define GPIO_Pin_Clock	GPIO_Pin_6
-#define GPIO_CONTROL		GPIOC
-#define GPIO_CONTROL_CLOCKCMD(x) 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, x)
+#define GPIO_CONTROL		GPIOE
+#define GPIO_CONTROL_CLOCKCMD(x) 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, x)
 //Pins to use on control GPIO
-#define GPIO_CONTROL_RowShift	0 // 0-3
-#define GPIO_Pin_STB			GPIO_Pin_7
+#define GPIO_CONTROL_RowShift	2 // 0-3 for 16 scanrows, 0-2 for 8
+#define GPIO_Pin_STB			GPIO_Pin_6
 
 /*
  * End of options
@@ -241,7 +241,6 @@ unsigned int matrix_row;
 void matrix_next() {
 	//Actually show current data
 	//Strobe up
-	//GPIOE->BSRRH = GPIO_Pin_15;
 	GPIO_CONTROL->BSRRL = GPIO_Pin_STB;
 	//Update curdata pointer
 	DMA2_Stream5->M0AR += IMAGEROWLEN * sizeof(IMGTYPE);
