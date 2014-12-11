@@ -28,20 +28,12 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include <math.h>
+#include "config.h"
+#include "framebuffer.h"
 
 /*
  * General options
  */
-//Number of screens, 2 are supported with one GPIO output port, 5 with two.
-#define MATRIX_CHANNELS	1
-//Number of columns
-#define MATRIX_COLS		(32*9)
-//Number of scan rows in the matrix, 8 for 32x16 PH-10 matrices, 16 for adafruit's 32x32
-#define MATRIX_SCANROWS	8
-//Bit depth, decrease this to reduce flicker, increase this for more colors.
-#define MATRIX_BITDEPTH	10
-//Number of buffers, not actually used
-#define BUFFERS			2
 //Gamma correction, will be removed later.
 #define GAMMACORRECTION
 /*
@@ -50,7 +42,7 @@
 //Control GPIO, should be different from data GPIOs
 #define GPIO_DATA			GPIOD
 #define GPIO_DATA_CLOCKCMD(x) 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, x)
-#define GPIO_Pin_Clock	GPIO_Pin_6
+
 #define GPIO_CONTROL		GPIOE
 #define GPIO_CONTROL_CLOCKCMD(x) 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, x)
 //Pins to use on control GPIO
@@ -65,23 +57,6 @@
 //The time for one inner column loop to complete.
 #define MIN_TIMER_COUNT 150
 
-
-#define MATRIX_ROWS (MATRIX_SCANROWS * MATRIX_CHANNELS)
-
-#define IMGTYPE	uint8_t
-
-/*
- * 32 columns (each containing 12 RGB values)
- * 8 rows
- * 8 bits
- */
-#define IMAGEROWLEN	MATRIX_COLS * 2
-#define IMAGEBITLEN	IMAGEROWLEN * MATRIX_SCANROWS
-#define IMAGELEN	IMAGEBITLEN * MATRIX_BITDEPTH
-IMGTYPE imageBuffers[(IMAGELEN*BUFFERS)]={0};
-volatile unsigned int nDisplayingBuffer=0;
-volatile unsigned int nDisplayBuffer=0; //Put this in a shared register so the main thread won't have to read memory all the time.
-volatile unsigned int nWriteBuffer=1;
 #ifdef GAMMACORRECTION
 uint16_t gammatable[256];
 
@@ -99,7 +74,7 @@ void init_gamma_table() {
 	for (i=0; i<256; i++) {
 		float fin = i / 255.0f;
 		float fout = lum2duty(fin);
-		uint16_t out = fout * ((float)((1<<MATRIX_BITDEPTH)-1));
+		uint16_t out = fout * ((float)((1<<FRAMEBUFFER_MAXBITDEPTH)-1));
 		gammatable[i] = out;
 	}
 }
@@ -110,6 +85,7 @@ void init_gamma_table() {
 
 //TODO: Optimize this!
 void setpixel(unsigned int x, unsigned int y, uint16_t r, uint16_t g, uint16_t b) {
+	unsigned int offset=(x + (y*MATRIX_WIDTH))*3;
 	uint16_t wr,wg,wb;
 #ifdef GAMMACORRECTION
 	wr=gammatable[r&255];
@@ -120,56 +96,28 @@ void setpixel(unsigned int x, unsigned int y, uint16_t r, uint16_t g, uint16_t b
 	wg=g;
 	wb=b;
 #endif
-	if (y >= 16 && y<32) {
-		x = (IMAGE_WIDTH - 1)-x;
-		y = (IMAGE_HEIGHT - 1)-y;
-	}
-
-	unsigned int invy = (IMAGE_HEIGHT - 1)-y;
-	unsigned int col = x + ((invy / (MATRIX_SCANROWS * 2)) * IMAGE_WIDTH);
-	unsigned int channel = (y / MATRIX_SCANROWS) & 1;
-	unsigned int row = y % MATRIX_SCANROWS;
-
-	unsigned int rowshift = channel * 3;
-	unsigned int rowclear = ~(7 << rowshift);
-	unsigned int bit,bitmask=1<<MATRIX_BITDEPTH;
-	for (bit=0; bit<MATRIX_BITDEPTH; bit++) {
-		bitmask>>=1;
-		IMGTYPE *curdata = &imageBuffers[(col*2) + (row * IMAGEROWLEN) + (bit  * IMAGEBITLEN)+(nWriteBuffer*IMAGELEN)];
-		IMGTYPE rgb=0;
-		//Set blue bit
-		//rgb<<=1;
-		if (wr & bitmask) rgb |= 1;
-		if (wb & bitmask) rgb |= 2;
-		if (wg & bitmask) rgb |= 4;
-		rgb<<=rowshift;
-		curdata[0] = (curdata[0] & rowclear) | rgb;
-		curdata[1] = curdata[0] | GPIO_Pin_Clock;
-	}
+	framebuffer_write(offset,wr);
+	framebuffer_write(offset+1,wg);
+	framebuffer_write(offset+2,wb);
 }
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
 void create_image() {
 	unsigned int i, row, col;
-	//Reset image
-	for (i=0; i<IMAGELEN*BUFFERS; i+=2) {
-		imageBuffers[i]=0;
-		imageBuffers[i+1]=GPIO_Pin_Clock;
-	}
 	//Draw lines
-	for (row=0; row<IMAGE_HEIGHT; row++) {
+	for (row=0; row<MATRIX_HEIGHT; row++) {
 		for (col=0; col<IMAGE_WIDTH/2; col++) {
-			setpixel((IMAGE_WIDTH/2)-1-col,row,(row*256)/(IMAGE_WIDTH/2),(col*256)/IMAGE_HEIGHT,0);
-			setpixel((IMAGE_WIDTH/2)+col,row,(row*256)/(IMAGE_WIDTH/2),0,(col*256)/IMAGE_HEIGHT);
+			setpixel((MATRIX_WIDTH/2)-1-col,row,(row*256)/(MATRIX_WIDTH/2),(col*256)/MATRIX_HEIGHT,0);
+			setpixel((MATRIX_WIDTH/2)+col,row,(row*256)/(MATRIX_WIDTH/2),0,(col*256)/MATRIX_HEIGHT);
 			//setpixel(col,row,255,255,255);
 		}
 	}
 	for (i=0; i<MIN(IMAGE_HEIGHT,IMAGE_WIDTH); i++) {
 		setpixel(i,i,0,0,255);
-		setpixel((IMAGE_WIDTH-1)-i,i,0,255,0);
-		setpixel((IMAGE_WIDTH-1)-i,(IMAGE_HEIGHT-1)-i,255,0,0);
-		setpixel(i,(IMAGE_HEIGHT-1)-i,255,0,0);
+		setpixel((MATRIX_WIDTH-1)-i,i,0,255,0);
+		setpixel((MATRIX_WIDTH-1)-i,(MATRIX_HEIGHT-1)-i,255,0,0);
+		setpixel(i,(MATRIX_HEIGHT-1)-i,255,0,0);
 		//setpixel((MATRIX_COLS/2)-1,i,255,0,0);
 		//setpixel(MATRIX_COLS/2,i,0,255,0);
 	}
@@ -243,7 +191,7 @@ void matrix_next() {
 	//Strobe up
 	GPIO_CONTROL->BSRRL = GPIO_Pin_STB;
 	//Update curdata pointer
-	DMA2_Stream5->M0AR += IMAGEROWLEN * sizeof(IMGTYPE);
+	DMA2_Stream5->M0AR += FRAMEBUFFER_ROWLEN * sizeof(FRAMEBUFFER_TYPE);
 	//Set row, keep strobe up and output disabled
 	GPIO_CONTROL->ODR = (matrix_row << GPIO_CONTROL_RowShift) | GPIO_Pin_STB;
 	//Load the timer prescaler
@@ -251,14 +199,13 @@ void matrix_next() {
 
 	//Prepare data for next row.
 	matrix_row++;
-	if (matrix_row == MATRIX_SCANROWS) {
+	if (matrix_row == MATRIX_PANEL_SCANROWS) {
 		matrix_row = 0;
 		if (TIM3->PSC == 0) {
 			//Reset completely.
-			DMA2_Stream5->M0AR = &imageBuffers[IMAGELEN*nDisplayBuffer];
+			DMA2_Stream5->M0AR = framebuffer_get();
 			//Adjust the prescaler to it's maximum value, but don't actually reload it yet.
-			TIM3->PSC = (1 << MATRIX_BITDEPTH)-1;
-			nDisplayingBuffer = nDisplayBuffer;
+			TIM3->PSC = (1 << FRAMEBUFFER_MAXBITDEPTH)-1;
 		}
 		TIM3->PSC >>= 1;
 	}
@@ -288,13 +235,13 @@ void init_matrix() {
 	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
 	GPIO_InitStructure.GPIO_Speed = GPIO_High_Speed;
 	//For control, only row and control pins
-	GPIO_InitStructure.GPIO_Pin = ((MATRIX_SCANROWS-1)<<GPIO_CONTROL_RowShift)|GPIO_Pin_STB;
+	GPIO_InitStructure.GPIO_Pin = ((MATRIX_PANEL_SCANROWS-1)<<GPIO_CONTROL_RowShift)|GPIO_Pin_STB;
 	GPIO_Init(GPIO_CONTROL, &GPIO_InitStructure);
 }
 
 void matrix_start() {
 	//Set up variables as if last data was just clocked in, matrix_next will actually fix things up for us.
-	matrix_row = MATRIX_SCANROWS - 1;
+	matrix_row = MATRIX_PANEL_SCANROWS - 1;
 	TIM3->PSC = 0;
 	matrix_next();
 }
@@ -332,11 +279,19 @@ void init_dma() {
 	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&GPIO_DATA->ODR;
 	DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)0;
 	DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
-	DMA_InitStructure.DMA_BufferSize = IMAGEROWLEN;
+	DMA_InitStructure.DMA_BufferSize = FRAMEBUFFER_ROWLEN;
 	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
 	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
+	if (sizeof(FRAMEBUFFER_TYPE) == 1) {
+		DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+		DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
+	} else if (sizeof(FRAMEBUFFER_TYPE) == 2) {
+		DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+		DMA_InitStructure.DMA_MemoryDataSize = DMA_PeripheralDataSize_HalfWord;
+	} else if (sizeof(FRAMEBUFFER_TYPE) == 4) {
+		DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Word;
+		DMA_InitStructure.DMA_MemoryDataSize = DMA_PeripheralDataSize_Word;
+	}
 	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
 	DMA_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;
 	DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
@@ -471,31 +426,17 @@ uint16_t read_uart() {
 char temp[256];
 int main(void)
 {
-	nDisplayBuffer=0;
-	nWriteBuffer=nDisplayBuffer;
+	framebuffer_init();
 	init_dma();
 	init_timer();
 	init_matrix();
 	init_uart();
 
-	unsigned int i=0;
-	for (i=0; i<IMAGELEN*BUFFERS; i+=2) {
-		imageBuffers[i]=0;
-		imageBuffers[i]=GPIO_Pin_Clock;
-	}
-
 #ifdef GAMMACORRECTION
 	init_gamma_table();
 #endif
 	create_image();
-	nWriteBuffer=1;
-	//0 = R1
-	//1 = G1
-	//2 = B1 -> G1
-	//3 = R2 OK
-	//4 = G2 -> B2
-	//5 = B2 -> G2
-	//for (i=0; i<IMAGELEN; i++)
+	framebuffer_swap();
 
 	matrix_start();
 	uint8_t type=0;
@@ -509,27 +450,16 @@ int main(void)
 		len <<= 8;
 		len |= read_uart();
 
-		if (type == 0xDA && len == IMAGE_WIDTH*IMAGE_HEIGHT*3) {
+		if (type == 0xDA && len == MATRIX_WIDTH*MATRIX_HEIGHT*MATRIX_PANEL_CHANNELS) {
 			//Wait for write buffer to be unused
-			while (nDisplayingBuffer == nWriteBuffer);
-			unsigned int x=0;
-			unsigned int y=0;
+			framebuffer_sync();
+			unsigned int offset=0;
 			uint8_t r,g,b;
-			while (len>=3) {
-				r=read_uart();
-				g=read_uart();
-				b=read_uart();
-				len-=3;
-				if (y<IMAGE_HEIGHT) setpixel(x,y,r,g,b);
-				x++;
-				if (x >= IMAGE_WIDTH) {
-					x=0;
-					y++;
-				}
+			while (len--) {
+				framebuffer_write(offset++, gammatable[read_uart()]);
 			}
-			nDisplayBuffer=nWriteBuffer;
-			nWriteBuffer=(nWriteBuffer + 1)%BUFFERS;
-			while (len--) read_uart();
+			framebuffer_swap();
+			//while (len--) read_uart();
 		}
 		//Skip until end byte
 		while (read_uart() != 0x36);
