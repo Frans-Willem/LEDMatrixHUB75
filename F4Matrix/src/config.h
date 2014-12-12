@@ -28,9 +28,9 @@
 
 //Gamma & color correction
 #define COLORCORR_GAMMA_MIN				1.0
-#define COLORCORR_GAMMA_STEP			0.1
-#define COLORCORR_GAMMA_COUNT			10
-#define COLORCORR_GAMMA_DEFAULT			4
+#define COLORCORR_GAMMA_STEP			0.05
+#define COLORCORR_GAMMA_COUNT			40
+#define COLORCORR_GAMMA_DEFAULT			10
 
 //Output
 //GPIO for data and control
