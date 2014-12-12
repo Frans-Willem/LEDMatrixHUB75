@@ -30,6 +30,7 @@
 #include <math.h>
 #include "config.h"
 #include "framebuffer.h"
+#include "colorcorr.h"
 
 /*
  * General options
@@ -57,48 +58,12 @@
 //The time for one inner column loop to complete.
 #define MIN_TIMER_COUNT 150
 
-#ifdef GAMMACORRECTION
-uint16_t gammatable[256];
-
-float lum2duty(double lum) {
-	if (lum>0.07999591993063804) {
-		return pow(((lum+0.16)/1.16),3.0);
-	} else {
-		return lum/9.033;
-	}
-}
-
-
-void init_gamma_table() {
-	unsigned int i;
-	for (i=0; i<256; i++) {
-		float fin = i / 255.0f;
-		float fout = lum2duty(fin);
-		uint16_t out = fout * ((float)((1<<FRAMEBUFFER_MAXBITDEPTH)-1));
-		gammatable[i] = out;
-	}
-}
-#endif
-
-#define IMAGE_WIDTH	(32*3)
-#define IMAGE_HEIGHT (16*3)
-
 //TODO: Optimize this!
 void setpixel(unsigned int x, unsigned int y, uint16_t r, uint16_t g, uint16_t b) {
 	unsigned int offset=(x + (y*MATRIX_WIDTH))*3;
-	uint16_t wr,wg,wb;
-#ifdef GAMMACORRECTION
-	wr=gammatable[r&255];
-	wg=gammatable[g&255];
-	wb=gammatable[b&255];
-#else
-	wr=r;
-	wg=g;
-	wb=b;
-#endif
-	framebuffer_write(offset,wr);
-	framebuffer_write(offset+1,wg);
-	framebuffer_write(offset+2,wb);
+	framebuffer_write(offset,colorcorr_lookup(r));
+	framebuffer_write(offset+1,colorcorr_lookup(g));
+	framebuffer_write(offset+2,colorcorr_lookup(b));
 }
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
@@ -107,13 +72,13 @@ void create_image() {
 	unsigned int i, row, col;
 	//Draw lines
 	for (row=0; row<MATRIX_HEIGHT; row++) {
-		for (col=0; col<IMAGE_WIDTH/2; col++) {
+		for (col=0; col<MATRIX_WIDTH/2; col++) {
 			setpixel((MATRIX_WIDTH/2)-1-col,row,(row*256)/(MATRIX_WIDTH/2),(col*256)/MATRIX_HEIGHT,0);
 			setpixel((MATRIX_WIDTH/2)+col,row,(row*256)/(MATRIX_WIDTH/2),0,(col*256)/MATRIX_HEIGHT);
 			//setpixel(col,row,255,255,255);
 		}
 	}
-	for (i=0; i<MIN(IMAGE_HEIGHT,IMAGE_WIDTH); i++) {
+	for (i=0; i<MIN(MATRIX_HEIGHT,MATRIX_WIDTH); i++) {
 		setpixel(i,i,0,0,255);
 		setpixel((MATRIX_WIDTH-1)-i,i,0,255,0);
 		setpixel((MATRIX_WIDTH-1)-i,(MATRIX_HEIGHT-1)-i,255,0,0);
@@ -160,9 +125,11 @@ void init_timer() {
 	TIM_OCStructure.TIM_OutputState = TIM_OutputState_Enable;
 	TIM_OCStructure.TIM_Pulse = MIN_TIMER_COUNT;
 	TIM_OC1Init(TIM3, &TIM_OCStructure);
+	TIM_OCStructure.TIM_Pulse = MIN_TIMER_COUNT;
+	TIM_OC2Init(TIM3, &TIM_OCStructure);
 
 	//Set and enable interrupt
-	TIM_ITConfig(TIM3, TIM_IT_CC1, ENABLE);
+	TIM_ITConfig(TIM3, TIM_IT_CC2, ENABLE);
 
 	NVIC_InitStructure.NVIC_IRQChannel = TIM3_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
@@ -177,7 +144,7 @@ void TIM3_IRQHandler() {
 	//Disable timer
 	TIM3->CR1 &= ~TIM_CR1_CEN;
 	//Clear interrupt flags (maybe delay this?)
-	TIM3->SR &= ~TIM_IT_CC1;
+	TIM3->SR &= ~TIM_IT_CC2;
 	if (!(DMA2_Stream5->CR & DMA_SxCR_EN))
 		matrix_next();
 	return;
@@ -203,7 +170,7 @@ void matrix_next() {
 		matrix_row = 0;
 		if (TIM3->PSC == 0) {
 			//Reset completely.
-			DMA2_Stream5->M0AR = framebuffer_get();
+			DMA2_Stream5->M0AR = (uint32_t)framebuffer_get();
 			//Adjust the prescaler to it's maximum value, but don't actually reload it yet.
 			TIM3->PSC = (1 << FRAMEBUFFER_MAXBITDEPTH)-1;
 		}
@@ -427,14 +394,12 @@ char temp[256];
 int main(void)
 {
 	framebuffer_init();
+	colorcorr_init();
 	init_dma();
 	init_timer();
 	init_matrix();
 	init_uart();
 
-#ifdef GAMMACORRECTION
-	init_gamma_table();
-#endif
 	create_image();
 	framebuffer_swap();
 
@@ -454,9 +419,8 @@ int main(void)
 			//Wait for write buffer to be unused
 			framebuffer_sync();
 			unsigned int offset=0;
-			uint8_t r,g,b;
 			while (len--) {
-				framebuffer_write(offset++, gammatable[read_uart()]);
+				framebuffer_write(offset++, colorcorr_lookup(read_uart()));
 			}
 			framebuffer_swap();
 			//while (len--) read_uart();
