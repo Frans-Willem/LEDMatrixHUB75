@@ -41,9 +41,11 @@ int matrix_set_custom_baud(int fd, unsigned int baudrate) {
 		printf("Error on ioctl TCGETS2\r\n");
 		return -1;
 	}
+	/*
 	printf("Sizeof termios2: %d\r\n",sizeof(t));
 	printf("TCGETS2: %d 0x%.8X\r\n",TCGETS2,TCGETS2);
 	printf("TCSETS2: %d 0x%.8X\r\n",TCSETS2,TCSETS2);
+	*/
 	return 0;
 }
 
@@ -171,13 +173,15 @@ int handle_packet(struct sockaddr *addr, socklen_t addr_len, unsigned char *buff
 		}
 		unsigned char Sequence = decode_artnet_uint8(&buffer[sizeof(artnet_header) + 4]);
 		unsigned char Physical = decode_artnet_uint8(&buffer[sizeof(artnet_header) + 5]);
-		unsigned short Universe = decode_artnet_uint8(&buffer[sizeof(artnet_header) + 6]);
+		unsigned short Universe = decode_artnet_uint16_lohi(&buffer[sizeof(artnet_header) + 6]);
 		unsigned short Length = decode_artnet_uint16_hilo(&buffer[sizeof(artnet_header) + 8]);
 		if (bufferlen < sizeof(artnet_header) + 10 + Length) {
 			printf("Not enough data to OpOutput %d %d %d\r\n",Length,bufferlen,bufferlen-(sizeof(artnet_header)+10));
 			return 0;
 		}
 		return handle_opoutput(Sequence, Physical, Universe, Length, &buffer[sizeof(artnet_header)+10]);
+	} else {
+		printf("Unknown OpCode: %08X\r\n", OpCode);
 	}
 	return 0;
 }
