@@ -1,32 +1,29 @@
 - Make sure our changes are in there somewhere
 - Install OpenWRT Buildroot (http://wiki.openwrt.org/doc/howto/buildroot.exigence)
--- sudo apt-get update
--- sudo apt-get install git-core build-essential subversion
--- git clone git://git.openwrt.org/openwrt.git
--- cd openwrt
+    - sudo apt-get update
+    - sudo apt-get install git-core build-essential subversion
+    - git clone git://git.openwrt.org/openwrt.git
+    - cd openwrt
 - We don't need all OpenWRT packages available, base packages and LuCI related ones are enough. (https://forum.openwrt.org/viewtopic.php?id=16599)
--- ./scripts/feeds update packages luci
--- ./scripts/feeds install -a -p luci
+    - ./scripts/feeds update packages luci
+    - ./scripts/feeds install -a -p luci
 - Link in our Net2LEDMatrix package
--- ln -s ~/LEDMatrixHUB75/net2ledmatrix/ package/utils/net2ledmatrix
+    - ln -s ~/LEDMatrixHUB75/net2ledmatrix/ package/utils/net2ledmatrix
 - Link in our AR933x patch
--- ln -s ~/LEDMatrixHUB75/000-ar933x_uart_speed.patch target/linux/ar71xx/patches-3.14/
+    - ln -s ~/LEDMatrixHUB75/000-ar933x_uart_speed.patch target/linux/ar71xx/patches-3.14/
 - Configure which router to compile for
--- make menuconfig
--- Go into "Target profile" and pick TP-LINK TL-WR703N
--- Go into "LuCI" -> "Collections" and enable luci (hit space twice so it gets a * instead of M).
--- Go into "Utilities" and enable net2ledmatrix with a * to preinstall it, or with an M to compile as a package.
--- Save & Exit
+    - make menuconfig
+    - Go into "Target profile" and pick TP-LINK TL-WR703N
+    - Go into "LuCI" -> "Collections" and enable luci (hit space twice so it gets a * instead of M).
+    - Go into "Utilities" and enable net2ledmatrix with a * to preinstall it, or with an M to compile as a package.
+    - Save & Exit
 - Disable the serial console (because we'll be using it to communicate with the LED Matrix instead)
--- Open target/linux/ar71xx/image/Makefile
--- Find the line containing TL-WR703N (or whichever other router you use)
--- Replace ttyATH0 with ttyS0
--- It should now read something along the lines of:
+    - Open target/linux/ar71xx/image/Makefile
+    - Find the line containing TL-WR703N (or whichever other router you use)
+    - Replace ttyATH0 with ttyS0
+    - It should now read something along the lines of:
    (call SingleProfile,TPLINK-LZMA,64kraw,TLWR703,tl-wr703n-v1,TL-WR703N,ttyS0,115200,0x07030101,1,4Mlzma))
 - Start the compilation process
--- make
+    - make
 - Wait. It could take a few hours, or days.
-
-Niet vergeten:
-	- Console detachen van ttyATH0?
-	- net2ledmatrix handmatig compilen bij source-changes.
+- Your binary image should be in bin/ar71xx.
