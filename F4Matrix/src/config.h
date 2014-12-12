@@ -26,17 +26,25 @@
 #define FRAMEBUFFER_MAXBITDEPTH			10
 #define FRAMEBUFFER_BUFFERS				2
 
-//Gamma correction
+//Gamma & color correction
 #define COLORCORR_GAMMA_MIN				1.0
 #define COLORCORR_GAMMA_STEP			0.1
 #define COLORCORR_GAMMA_COUNT			10
 #define COLORCORR_GAMMA_DEFAULT			4
 
-//Calculated
+//Output
+//GPIO for data and control
+#define GPIO_DATA			GPIOD
+#define GPIO_DATA_CLOCKCMD(x) 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, x)
+
+#define GPIO_CONTROL		GPIOE
+#define GPIO_CONTROL_CLOCKCMD(x) 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, x)
+//Pins to use on control GPIO
+#define GPIO_CONTROL_RowShift	2 // 2,3,4,5 for 16 scanrows, 2,3,4 for 8
+#define GPIO_Pin_STB			GPIO_Pin_6
+
+//Calculated, don't change this!
 #define MATRIX_PANEL_HEIGHT (MATRIX_PANEL_SCANROWS * MATRIX_PANEL_BUSES)
 #define MATRIX_WIDTH		(MATRIX_PANEL_WIDTH*MATRIX_PANELSW)
 #define MATRIX_HEIGHT		(MATRIX_PANEL_HEIGHT*MATRIX_PANELSH)
-
-
-
 #endif /* CONFIG_H_ */
