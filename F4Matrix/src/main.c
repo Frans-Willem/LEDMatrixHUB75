@@ -31,12 +31,11 @@
 #include "config.h"
 #include "framebuffer.h"
 #include "colorcorr.h"
+#include "control_uart.h"
 
 /*
  * General options
  */
-//Gamma correction, will be removed later.
-#define GAMMACORRECTION
 /*
  * Output options
  */
@@ -302,86 +301,6 @@ void DMA2_Stream5_IRQHandler() {
 	return;
 }
 
-#define UART_BUFFER_SIZE	((96*48*3)+10)
-volatile uint16_t volatile uartbuffer[UART_BUFFER_SIZE];
-unsigned int uartindex=0;
-
-void init_uart() {
-	static GPIO_InitTypeDef GPIO_InitStructure;
-	static USART_InitTypeDef USART_InitStructure;
-	static DMA_InitTypeDef DMA_InitStructure;
-
-	unsigned int i;
-	for (i=0; i<UART_BUFFER_SIZE; i++)
-		uartbuffer[i]=-1;
-
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
-
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStructure.GPIO_Speed = GPIO_High_Speed;
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6|GPIO_Pin_7;
-	GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-	GPIO_PinAFConfig(GPIOB, GPIO_PinSource6, GPIO_AF_USART1);//TXD
-	GPIO_PinAFConfig(GPIOB, GPIO_PinSource7, GPIO_AF_USART1);//RXD
-
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
-
-	USART_InitStructure.USART_BaudRate = 5000000;
-	//230400 -> 126702
-	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-	USART_InitStructure.USART_Mode = USART_Mode_Rx|USART_Mode_Tx;
-	USART_InitStructure.USART_Parity = USART_Parity_No;
-	USART_InitStructure.USART_StopBits = USART_StopBits_1;
-	USART_InitStructure.USART_WordLength = 8;
-	USART_Init(USART1, &USART_InitStructure);
-
-	USART_Cmd(USART1, ENABLE);
-	USART_DMACmd(USART1, USART_DMAReq_Rx, ENABLE);
-
-	//Set GPIO
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA2, ENABLE);
-
-	//Clear flags
-	DMA_ClearFlag(DMA2_Stream2, DMA_FLAG_FEIF2 | DMA_FLAG_DMEIF2 | DMA_FLAG_TEIF2 | DMA_FLAG_HTIF2 | DMA_FLAG_TCIF2);
-
-	/* DMA2 Stream0 disable */
-	DMA_Cmd(DMA2_Stream2, DISABLE);
-
-	/* DMA2 Stream3  or Stream6 Config */
-	DMA_DeInit(DMA2_Stream2);
-
-	DMA_InitStructure.DMA_Channel = DMA_Channel_4; //Stream2, channel4 is USART1_RX
-	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&USART1->DR;
-	DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)uartbuffer;
-	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
-	DMA_InitStructure.DMA_BufferSize = UART_BUFFER_SIZE;
-	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-	DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
-	DMA_InitStructure.DMA_Priority = DMA_Priority_Low;
-	DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
-	DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-	DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-	DMA_Init(DMA2_Stream2, &DMA_InitStructure);
-
-	DMA_FlowControllerConfig(DMA2_Stream2, DMA_FlowCtrl_Memory);
-	DMA_Cmd(DMA2_Stream2, ENABLE);
-}
-
-uint16_t read_uart() {
-	while (DMA2_Stream2->NDTR == UART_BUFFER_SIZE - uartindex || uartbuffer[uartindex]&0x8000);
-	uint16_t cur = uartbuffer[uartindex];
-	uartbuffer[uartindex]=-1;
-	if (uartindex == UART_BUFFER_SIZE-1) uartindex=0;
-	else uartindex++;
-	return cur;
-}
 
 #define STATE_IDLE		0
 #define STATE_TYPE		1
@@ -395,39 +314,17 @@ int main(void)
 {
 	framebuffer_init();
 	colorcorr_init();
+	control_uart_init();
 	init_dma();
 	init_timer();
 	init_matrix();
-	init_uart();
 
 	create_image();
 	framebuffer_swap();
 
 	matrix_start();
-	uint8_t type=0;
-	uint16_t len=0;
 
-	while (1) {
-		//Wait for start byte?
-		while (read_uart() != 0xC9);
-		type = read_uart();
-		len = read_uart();
-		len <<= 8;
-		len |= read_uart();
-
-		if (type == 0xDA && len == MATRIX_WIDTH*MATRIX_HEIGHT*MATRIX_PANEL_CHANNELS) {
-			//Wait for write buffer to be unused
-			framebuffer_sync();
-			unsigned int offset=0;
-			while (len--) {
-				framebuffer_write(offset++, colorcorr_lookup(read_uart()));
-			}
-			framebuffer_swap();
-			//while (len--) read_uart();
-		}
-		//Skip until end byte
-		while (read_uart() != 0x36);
-	}
+	control_uart_loop();
 	return 0;
 }
 
