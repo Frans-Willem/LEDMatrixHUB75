@@ -44,7 +44,7 @@ void matrix_init_timer() {
 	TIM_OCStructure.TIM_OCMode = TIM_OCMode_PWM1;
 	TIM_OCStructure.TIM_OCPolarity = TIM_OCPolarity_Low;
 	TIM_OCStructure.TIM_OutputState = TIM_OutputState_Enable;
-	TIM_OCStructure.TIM_Pulse = MIN_TIMER_COUNT/64;
+	TIM_OCStructure.TIM_Pulse = MIN_TIMER_COUNT;
 	TIM_OC1Init(TIM3, &TIM_OCStructure);
 	TIM_OCStructure.TIM_Pulse = MIN_TIMER_COUNT;
 	TIM_OC2Init(TIM3, &TIM_OCStructure);
@@ -57,6 +57,13 @@ void matrix_init_timer() {
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
 	NVIC_Init(&NVIC_InitStructure);
+}
+
+void matrix_setbrightness(uint8_t b) {
+	unsigned int period = b;
+	period *= MIN_TIMER_COUNT;
+	period /= 255;
+	TIM_SetCompare1(TIM3, period);
 }
 
 unsigned int matrix_row;
