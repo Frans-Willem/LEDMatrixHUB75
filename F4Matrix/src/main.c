@@ -58,35 +58,7 @@
 #define MIN_TIMER_COUNT 150
 
 //TODO: Optimize this!
-void setpixel(unsigned int x, unsigned int y, uint16_t r, uint16_t g, uint16_t b) {
-	unsigned int offset=(x + (y*MATRIX_WIDTH))*3;
-	framebuffer_write(offset,colorcorr_lookup(r));
-	framebuffer_write(offset+1,colorcorr_lookup(g));
-	framebuffer_write(offset+2,colorcorr_lookup(b));
-}
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-
-void create_image() {
-	unsigned int i, row, col;
-	//Draw lines
-	for (row=0; row<MATRIX_HEIGHT; row++) {
-		for (col=0; col<MATRIX_WIDTH/2; col++) {
-			setpixel((MATRIX_WIDTH/2)-1-col,row,(row*256)/(MATRIX_WIDTH/2),(col*256)/MATRIX_HEIGHT,0);
-			setpixel((MATRIX_WIDTH/2)+col,row,(row*256)/(MATRIX_WIDTH/2),0,(col*256)/MATRIX_HEIGHT);
-			//setpixel(col,row,255,255,255);
-		}
-	}
-	for (i=0; i<MIN(MATRIX_HEIGHT,MATRIX_WIDTH); i++) {
-		setpixel(i,i,0,0,255);
-		setpixel((MATRIX_WIDTH-1)-i,i,0,255,0);
-		setpixel((MATRIX_WIDTH-1)-i,(MATRIX_HEIGHT-1)-i,255,0,0);
-		setpixel(i,(MATRIX_HEIGHT-1)-i,255,0,0);
-		//setpixel((MATRIX_COLS/2)-1,i,255,0,0);
-		//setpixel(MATRIX_COLS/2,i,0,255,0);
-	}
-	//setpixel(0,0,255,0,0);
-}
 
 /* Private function prototypes -----------------------------------------------*/
 void Delay(__IO uint32_t nTime);
@@ -315,13 +287,10 @@ int main(void)
 	framebuffer_init();
 	colorcorr_init();
 	control_uart_init();
+	testimage_init();
 	init_dma();
 	init_timer();
 	init_matrix();
-
-	create_image();
-	framebuffer_swap();
-
 	matrix_start();
 
 	control_uart_loop();
