@@ -11,5 +11,6 @@
 
 void colorcorr_init();
 uint16_t colorcorr_lookup(uint8_t v);
+void colorcorr_select(unsigned int index);
 
 #endif /* COLORCORR_H_ */

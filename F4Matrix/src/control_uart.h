@@ -9,8 +9,8 @@
 #define UART_CONTROL_H_
 
 
-void uart_control_init();
-void uart_control_loop();
+void control_uart_init();
+void control_uart_loop();
 
 
 #endif /* UART_CONTROL_H_ */

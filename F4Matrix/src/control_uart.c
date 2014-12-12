@@ -9,11 +9,13 @@
 #include "colorcorr.h"
 #include "framebuffer.h"
 #include "config.h"
+#include "matrix.h"
 #include "stm32f4xx.h"
 
 #define UART_BUFFER_SIZE	500
 volatile uint16_t volatile control_uart_buffer[UART_BUFFER_SIZE];
 unsigned int control_uart_index=0;
+
 
 void control_uart_init() {
 	static GPIO_InitTypeDef GPIO_InitStructure;
@@ -91,29 +93,112 @@ uint16_t control_uart_read() {
 	return cur;
 }
 
+#define CMD_SWAP		0
+#define CMD_GAMMA		1
+#define CMD_BRIGHTNESS	2
+
+void control_uart_command(uint8_t cmd, uint8_t *data, unsigned int len) {
+	switch (cmd) {
+	case CMD_SWAP:
+		framebuffer_swap();
+		break;
+	case CMD_GAMMA:
+		colorcorr_select((len > 0)?data[0]:0);
+		break;
+	case CMD_BRIGHTNESS:
+		matrix_setbrightness((len > 0)?data[0]:0);
+		break;
+	}
+}
+
+#define STATE_IDLE		0 //Nothing received yet
+#define STATE_F			1 //F received
+#define STATE_FW		2 //FW received
+#define STATE_FWP		3 //FWP received
+#define STATE_FWPL		4 //FWP_ received
+#define STATE_FWPLL		5 //FWP__ received
+#define STATE_FWPLLO	6 //FWP___ received
+#define STATE_FWPLLOO	7 //FWP____ received
+#define STATE_FWC	 	8 //FWC received
+#define STATE_FWCX		9 //FWCX received
+
 void control_uart_loop() {
-	uint8_t type=0;
+	uint8_t state=STATE_IDLE;
 	uint16_t len=0;
+	uint16_t off=0;
+	uint8_t cmd;
+	uint8_t cmddata[32];
 
 	while (1) {
-		//Wait for start byte?
-		while (control_uart_read() != 0xC9);
-		type = control_uart_read();
-		len = control_uart_read();
-		len <<= 8;
-		len |= control_uart_read();
-
-		if (type == 0xDA && len == MATRIX_WIDTH*MATRIX_HEIGHT*MATRIX_PANEL_CHANNELS) {
-			//Wait for write buffer to be unused
-			framebuffer_sync();
-			unsigned int offset=0;
-			while (len--) {
-				framebuffer_write(offset++, colorcorr_lookup(control_uart_read()));
+		uint8_t c=control_uart_read();
+		switch (state) {
+		case STATE_IDLE:
+			if (c == 'F')
+				state = STATE_F;
+			break;
+		case STATE_F:
+			if (c == 'W')
+				state = STATE_FW;
+			else if (c == 'F')
+				state = STATE_F;
+			else
+				state = STATE_IDLE;
+			break;
+		case STATE_FW:
+			if (c == 'P')
+				state = STATE_FWP;
+			else if (c == 'C')
+				state = STATE_FWC;
+			else if (c == 'F')
+				state = STATE_F;
+			else
+				state = STATE_IDLE;
+			break;
+		case STATE_FWP:
+			len = ((uint16_t)c) << 8;
+			state = STATE_FWPL;
+			break;
+		case STATE_FWPL:
+			len |= c;
+			state = STATE_FWPLL;
+			break;
+		case STATE_FWPLL:
+			off = ((uint16_t)c) << 8;
+			state = STATE_FWPLLO;
+			break;
+		case STATE_FWPLLO:
+			off |= c;
+			if (len == 0)
+				state = STATE_IDLE;
+			else
+				state = STATE_FWPLLOO;
+			break;
+		case STATE_FWPLLOO:
+			framebuffer_write(off,colorcorr_lookup(c));
+			len--;
+			off++;
+			if (len == 0)
+				state=STATE_IDLE;
+			break;
+		case STATE_FWC:
+			len = c & 0x1F;
+			off = 0;
+			cmd = c >> 5;
+			if (len == 0) {
+				state = STATE_IDLE;
+				control_uart_command(cmd, cmddata, len);
+			} else {
+				state = STATE_FWCX;
 			}
-			framebuffer_swap();
-			//while (len--) read_uart();
+			break;
+		case STATE_FWCX:
+			cmddata[off] = c;
+			off++;
+			if (off == len) {
+				state = STATE_IDLE;
+				control_uart_command(cmd, cmddata, len);
+			}
+			break;
 		}
-		//Skip until end byte
-		while (control_uart_read() != 0x36);
 	}
 }

@@ -55,3 +55,9 @@ void colorcorr_init() {
 uint16_t colorcorr_lookup(uint8_t v) {
 	return colorcorr_table[colorcorr_current][v];
 }
+
+void colorcorr_select(unsigned int index) {
+	if (index > COLORCORR_GAMMA_COUNT)
+		index = COLORCORR_GAMMA_COUNT;
+	colorcorr_current = index;
+}
