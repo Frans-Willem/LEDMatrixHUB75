@@ -19,20 +19,11 @@
 #include <fcntl.h>
 
 #define BYTES_PER_UNIVERSE	(170*3)
-
-#define IMAGE_WIDTH		96
-#define IMAGE_HEIGHT	48
-
-#define IMAGE_LEN		(IMAGE_WIDTH*IMAGE_HEIGHT*3)
-#define COMMAND_LEN		(IMAGE_LEN+5)
-#define IMAGE_OFFSET		4
-
+#define TOTALBYTES	(96*48*3)
+#define NUMUNIVERSES	((TOTALBYTES+(BYTES_PER_UNIVERSE-1)) / BYTES_PER_UNIVERSE)
 #define BUFFERSIZE	1024
 
-unsigned char command[COMMAND_LEN];
-unsigned char *image=&command[IMAGE_OFFSET];
-unsigned int command_sent = 0;
-unsigned int image_ready=0;
+#define UNIVERSE_CONTROL	0xFFFF
 
 int matrix_set_custom_baud(int fd, unsigned int baudrate) {
 	struct termios2 t;
@@ -69,13 +60,6 @@ int matrix_init() {
 		printf("Unable to set custom baudrate\r\n");
 		return -1;
 	}
-	
-	command[0]=0xC9;
-	command[1]=0xDA;
-	command[2] = IMAGE_LEN >> 8;
-	command[3] = IMAGE_LEN & 0xFF;
-	command[COMMAND_LEN-1]=0x36;
-	image_ready = 0;
 	return 0;
 }
 
@@ -83,18 +67,12 @@ void matrix_deinit() {
 	close(matrix_fd);
 }
 
-void matrix_flush() {
-	unsigned int command_ready = image_ready + IMAGE_OFFSET;
-	if (command_ready == IMAGE_LEN + IMAGE_OFFSET)
-		command_ready = COMMAND_LEN;
-	while (command_ready > command_sent) {
-		unsigned int blocklen = MIN(1024, command_ready-command_sent);
-		write(matrix_fd,&command[command_sent], blocklen);
-		command_sent += blocklen;
-	}
-	if (command_sent == COMMAND_LEN) {
-		command_sent = 0;
-		image_ready = 0;
+void matrix_write(unsigned char *data, unsigned int len) {
+	while (len) {
+		unsigned int blocklen = MIN(1024, len);
+		write(matrix_fd,data,blocklen);
+		data = &data[blocklen];
+		len -= blocklen;
 	}
 }
 
@@ -131,15 +109,43 @@ void socket_deinit() {
 	close(socket_fd);
 }
 
+void matrix_swap() {
+	static unsigned char swappacket[]={'F','W','C',0};
+	matrix_write(swappacket,sizeof(swappacket));
+}
+
+void matrix_setgamma(unsigned int gamma) {
+	unsigned char command[]={'F','W','C',(1 << 5) | 1,gamma};
+	matrix_write(command, sizeof(command));
+}
+
+void matrix_setbrightness(unsigned int brightness) {
+	unsigned char command[]={'F','W','C',(2 << 5) | 1,brightness};
+	matrix_write(command, sizeof(command));
+}
+
 int handle_opoutput(unsigned char Sequence, unsigned char Physical, unsigned short Universe, unsigned short Length, unsigned char *data) {
-	unsigned int offset = Universe * BYTES_PER_UNIVERSE;
-	unsigned int len = Length;
-	if (offset > IMAGE_LEN) {
-		return 0;
+	if (Universe < NUMUNIVERSES) {
+		unsigned int offset = Universe * BYTES_PER_UNIVERSE;
+		unsigned int len = Length;
+		unsigned int packetlen = len + 7; //FWHLLOO
+		//Abuse the fact that the 7 bytes before data are still part of the Art-Net packet, so we can write to that!
+		unsigned char *packet = &data[-7];
+		packet[0]='F';
+		packet[1]='W';
+		packet[2]='P';
+		packet[3]=len>>8;
+		packet[4]=len&0xFF;
+		packet[5]=offset >> 8;
+		packet[6]=offset & 0xFF;
+		matrix_write(packet, packetlen);
+		if (Universe == (NUMUNIVERSES-1))
+			matrix_swap();
 	}
-	if (offset + len > IMAGE_LEN) len = IMAGE_LEN - offset;
-	memcpy(&image[offset],data,len);
-	image_ready = MAX(image_ready, offset+len);
+	if (Universe == UNIVERSE_CONTROL) {
+		if (Length > 0) matrix_setbrightness(data[0]);
+		if (Length > 1) matrix_setgamma(data[1]);
+	}
 	return 0;
 }
 
@@ -201,8 +207,7 @@ int main(void)
 			printf("Unable to open socket\r\n");
 			return -1;
 		} else {
-			while (socket_handle() >= 0)
-				matrix_flush();
+			while (socket_handle() >= 0);
 			socket_deinit();
 		}
 		matrix_deinit();
