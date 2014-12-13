@@ -8,11 +8,21 @@
 
 #include "framebuffer.h"
 
+//Current setup:
+//For each bit
+//	for each row
+//		data to be clocked out
+//New setup:
+//For each row
+//	for each bit
+//		data to be clocked out
+
 //Number of elements per row
 //Number of elements per bit (e.g. a row for each scanrow)
-#define FRAMEBUFFER_BITLEN	(FRAMEBUFFER_ROWLEN * MATRIX_PANEL_SCANROWS)
+#define FRAMEBUFFER_BITLEN	FRAMEBUFFER_SHIFTLEN
+#define FRAMEBUFFER_ROWLEN	(FRAMEBUFFER_BITLEN * FRAMEBUFFER_MAXBITDEPTH)
 //Length of one framebuffer
-#define FRAMEBUFFER_LEN		(FRAMEBUFFER_BITLEN * FRAMEBUFFER_MAXBITDEPTH)
+#define FRAMEBUFFER_LEN		(FRAMEBUFFER_ROWLEN * MATRIX_PANEL_SCANROWS)
 
 FRAMEBUFFER_TYPE framebuffers[FRAMEBUFFER_LEN*FRAMEBUFFER_BUFFERS]={0};
 volatile unsigned int framebuffer_writebuffer=0;

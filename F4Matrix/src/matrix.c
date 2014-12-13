@@ -11,8 +11,6 @@
 #include "config.h"
 #include "stm32f4xx.h"
 
-#define MIN_TIMER_COUNT	150
-
 void matrix_init_timer() {
 	static TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
 	static TIM_OCInitTypeDef TIM_OCStructure;
@@ -44,9 +42,9 @@ void matrix_init_timer() {
 	TIM_OCStructure.TIM_OCMode = TIM_OCMode_PWM1;
 	TIM_OCStructure.TIM_OCPolarity = TIM_OCPolarity_Low;
 	TIM_OCStructure.TIM_OutputState = TIM_OutputState_Enable;
-	TIM_OCStructure.TIM_Pulse = MIN_TIMER_COUNT;
+	TIM_OCStructure.TIM_Pulse = MATRIX_MINIMUM_DISPLAY_TIME;
 	TIM_OC1Init(TIM3, &TIM_OCStructure);
-	TIM_OCStructure.TIM_Pulse = MIN_TIMER_COUNT;
+	TIM_OCStructure.TIM_Pulse = MATRIX_MINIMUM_DISPLAY_TIME;
 	TIM_OC2Init(TIM3, &TIM_OCStructure);
 
 	//Set and enable interrupt
@@ -61,7 +59,7 @@ void matrix_init_timer() {
 
 void matrix_setbrightness(uint8_t b) {
 	unsigned int period = b;
-	period *= MIN_TIMER_COUNT;
+	period *= MATRIX_MINIMUM_DISPLAY_TIME;
 	period /= 255;
 	TIM_SetCompare1(TIM3, period);
 }
@@ -73,25 +71,21 @@ void matrix_next() {
 	//Strobe up
 	GPIO_CONTROL->BSRRL = GPIO_Pin_STB;
 	//Update curdata pointer
-	DMA2_Stream5->M0AR += FRAMEBUFFER_ROWLEN * sizeof(FRAMEBUFFER_TYPE);
+	DMA2_Stream5->M0AR += FRAMEBUFFER_SHIFTLEN * sizeof(FRAMEBUFFER_TYPE);
 	//Set row, keep strobe up and output disabled
 	GPIO_CONTROL->ODR = (matrix_row << GPIO_CONTROL_RowShift) | GPIO_Pin_STB;
 	//Load the timer prescaler
 	TIM3->EGR = TIM_PSCReloadMode_Immediate;
 
-	//Prepare data for next row.
-	matrix_row++;
-	if (matrix_row == MATRIX_PANEL_SCANROWS) {
-		matrix_row = 0;
-		if (TIM3->PSC == 0) {
-			//Reset completely.
-			DMA2_Stream5->M0AR = (uint32_t)framebuffer_get();
-			//Adjust the prescaler to it's maximum value, but don't actually reload it yet.
-			TIM3->PSC = (1 << FRAMEBUFFER_MAXBITDEPTH)-1;
+	if (TIM3->PSC == 0) {
+		TIM3->PSC = (1 << FRAMEBUFFER_MAXBITDEPTH)-1;
+		matrix_row++;
+		if (matrix_row == MATRIX_PANEL_SCANROWS) {
+			matrix_row = 0;
+			DMA2_Stream5->M0AR = framebuffer_get();
 		}
-		TIM3->PSC >>= 1;
 	}
-	GPIOD->ODR = matrix_row << 12;
+	TIM3->PSC >>= 1;
 
 	//Strobe down (deliberately quite far away from strobe up, give panels some time to respond)
 	GPIO_CONTROL->BSRRH = GPIO_Pin_STB;
@@ -145,7 +139,7 @@ void matrix_init_data_dma() {
 	DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&GPIO_DATA->ODR;
 	DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)0;
 	DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
-	DMA_InitStructure.DMA_BufferSize = FRAMEBUFFER_ROWLEN;
+	DMA_InitStructure.DMA_BufferSize = FRAMEBUFFER_SHIFTLEN;
 	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
 	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
 	if (sizeof(FRAMEBUFFER_TYPE) == 1) {

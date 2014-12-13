@@ -23,8 +23,9 @@
 #define MATRIX_PANELSH	3
 
 //Output stuff
-#define FRAMEBUFFER_MAXBITDEPTH			10
+#define FRAMEBUFFER_MAXBITDEPTH			11
 #define FRAMEBUFFER_BUFFERS				2
+#define MATRIX_MINIMUM_DISPLAY_TIME		50
 
 //Gamma & color correction
 #define COLORCORR_GAMMA_MIN				1.0
