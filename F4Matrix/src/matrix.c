@@ -147,10 +147,10 @@ void matrix_init_data_dma() {
 		DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
 	} else if (sizeof(FRAMEBUFFER_TYPE) == 2) {
 		DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-		DMA_InitStructure.DMA_MemoryDataSize = DMA_PeripheralDataSize_HalfWord;
+		DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
 	} else if (sizeof(FRAMEBUFFER_TYPE) == 4) {
 		DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Word;
-		DMA_InitStructure.DMA_MemoryDataSize = DMA_PeripheralDataSize_Word;
+		DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Word;
 	}
 	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
 	DMA_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;
