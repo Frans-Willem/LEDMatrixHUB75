@@ -25,9 +25,9 @@ STM32F4Discovery matrix pins
 | PD0 | R1 |
 | PD1 | G1 |
 | PD2 | B1 |
-| PD3 | R1 |
-| PD4 | G1 |
-| PD5 | B1 |
+| PD3 | R2 |
+| PD4 | G2 |
+| PD5 | B2 |
 | PE2 | A |
 | PE3 | B |
 | PE4 | C |
