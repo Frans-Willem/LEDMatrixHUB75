@@ -145,18 +145,20 @@ void matrix_init_data_dma() {
 	if (sizeof(FRAMEBUFFER_TYPE) == 1) {
 		DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
 		DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
+		DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC16;
 	} else if (sizeof(FRAMEBUFFER_TYPE) == 2) {
 		DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
 		DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+		DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC8;
 	} else if (sizeof(FRAMEBUFFER_TYPE) == 4) {
 		DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Word;
 		DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Word;
+		DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC4;
 	}
 	DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
 	DMA_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;
 	DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
 	DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-	DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_INC16;
 	DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
 	DMA_Init(DMA2_Stream5, &DMA_InitStructure);
 
