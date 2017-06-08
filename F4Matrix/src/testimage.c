@@ -11,15 +11,15 @@
 void testimage_set(unsigned int x, unsigned int y, uint8_t r, uint8_t g, uint8_t b) {
 	unsigned int offset=(x + (y*MATRIX_WIDTH))*3;
 	framebuffer_write(offset,colorcorr_lookup(r));
-	framebuffer_write(offset+1,colorcorr_lookup(b));
-	framebuffer_write(offset+2,colorcorr_lookup(g));
+	framebuffer_write(offset+1,colorcorr_lookup(g));
+	framebuffer_write(offset+2,colorcorr_lookup(b));
 }
 
 void testimage_setb(unsigned int x, unsigned int y, uint8_t* rgb) {
 	unsigned int offset=(x + (y*MATRIX_WIDTH))*3;
 	framebuffer_write(offset,colorcorr_lookup(rgb[0]));
-	framebuffer_write(offset+1,colorcorr_lookup(rgb[2]));
-	framebuffer_write(offset+2,colorcorr_lookup(rgb[1]));
+	framebuffer_write(offset+1,colorcorr_lookup(rgb[1]));
+	framebuffer_write(offset+2,colorcorr_lookup(rgb[2]));
 }
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
