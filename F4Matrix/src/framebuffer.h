@@ -11,7 +11,8 @@
 #include "config.h"
 
 //Number of bits to clock out each time
-#define FRAMEBUFFER_BITSPERLINE	(MATRIX_PANEL_WIDTH*MATRIX_PANELSW*MATRIX_PANELSH)
+#define FRAMEBUFFER_BITSPERPANELLINE (MATRIX_PANEL_WIDTH * MATRIX_PANEL_STACKED)
+#define FRAMEBUFFER_BITSPERLINE	(FRAMEBUFFER_BITSPERPANELLINE*MATRIX_PANELSW*MATRIX_PANELSH)
 #define FRAMEBUFFER_SHIFTLEN	(FRAMEBUFFER_BITSPERLINE * 2)
 #define FRAMEBUFFER_CLOCK	(1<<(MATRIX_PANEL_CHANNELS*MATRIX_PANEL_BUSES))
 
@@ -25,6 +26,7 @@
 
 void framebuffer_init();
 void framebuffer_write(unsigned int offset, uint16_t value);
+void framebuffer_raw_write(unsigned int panel, unsigned int bus, unsigned int scanrow, unsigned int offset, unsigned int channel, uint16_t value);
 FRAMEBUFFER_TYPE *framebuffer_get();
 void framebuffer_swap();
 void framebuffer_sync();
