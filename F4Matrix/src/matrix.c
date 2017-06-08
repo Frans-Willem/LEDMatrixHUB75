@@ -166,7 +166,7 @@ void matrix_init_data_dma() {
 
 	/* Time base configuration */
 	TIM_TimeBaseStructure.TIM_Period = 1;
-	TIM_TimeBaseStructure.TIM_Prescaler = 0;
+	TIM_TimeBaseStructure.TIM_Prescaler = 16;
 	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
 	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Down;
 	TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
