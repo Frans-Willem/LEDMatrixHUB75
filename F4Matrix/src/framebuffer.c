@@ -50,17 +50,6 @@ void framebuffer_write(unsigned int offset, uint16_t value) {
 	// Convert X and Y to position within panel
 	x %= MATRIX_PANEL_WIDTH;
 	y %= MATRIX_PANEL_HEIGHT;
-	/* TODO: Snake-conversion here */
-	if ((y_panel & 1) == 0) {
-		y = (MATRIX_PANEL_HEIGHT-1)-y;
-		x = (MATRIX_PANEL_WIDTH-1)-x;
-		x_panel = (MATRIX_PANELSW-1)-x_panel;
-		if (y > (MATRIX_PANEL_HEIGHT/2)) {
-			y -= MATRIX_PANEL_HEIGHT/2;
-		} else {
-			y += MATRIX_PANEL_HEIGHT/2;
-		}
-	}
 	// Scanrow and bus calculation
 	unsigned int scanrow = y % MATRIX_PANEL_SCANROWS;
 	unsigned int stack = (y / MATRIX_PANEL_SCANROWS) % MATRIX_PANEL_STACKED;
