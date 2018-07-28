@@ -93,6 +93,12 @@ uint16_t control_uart_read() {
 	return cur;
 }
 
+void control_uart_write(uint8_t ch)
+{
+  while(!(USART1->SR & USART_SR_TXE));
+  USART1->DR = ch;
+}
+
 #define CMD_SWAP		0
 #define CMD_GAMMA		1
 #define CMD_BRIGHTNESS	2
@@ -177,8 +183,11 @@ void control_uart_loop() {
 			framebuffer_write(off,colorcorr_lookup(c));
 			len--;
 			off++;
-			if (len == 0)
+			if (len == 0) {
 				state=STATE_IDLE;
+				control_uart_write('O');
+				control_uart_write('K');
+			}
 			break;
 		case STATE_FWC:
 			len = c & 0x1F;
@@ -187,6 +196,8 @@ void control_uart_loop() {
 			if (len == 0) {
 				state = STATE_IDLE;
 				control_uart_command(cmd, cmddata, len);
+        control_uart_write('O');
+        control_uart_write('K');
 			} else {
 				state = STATE_FWCX;
 			}
@@ -197,6 +208,8 @@ void control_uart_loop() {
 			if (off == len) {
 				state = STATE_IDLE;
 				control_uart_command(cmd, cmddata, len);
+        control_uart_write('O');
+        control_uart_write('K');
 			}
 			break;
 		}
